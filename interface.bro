@@ -19,19 +19,8 @@ event SecurityOnion::interface_line(description: Input::EventDescription, tpe: I
 	if ( 3 in parts )
 		{
 		interface = parts[3];
-		system(fmt("rm %s", description$source));
 		event SecurityOnion::found_interface(interface);
 		}
-	}
-
-event add_interface_reader(name: string)
-	{
-	Input::add_event([$source=name,
-	                  $name=name,
-	                  $reader=Input::READER_RAW,
-	                  $want_record=F,
-	                  $fields=InterfaceCmdLine,
-	                  $ev=SecurityOnion::interface_line]);
 	}
 
 event bro_init() &priority=5
@@ -45,8 +34,12 @@ event bro_init() &priority=5
 		}
 	else
 		{
-		local tmpfile = "/tmp/bro-interface-" + unique_id("");
-		system(fmt("grep \"interface\" /opt/bro/etc/node.cfg 2>/dev/null | grep -v \"^[[:blank:]]*#\" > %s", tmpfile));
-		event add_interface_reader(tmpfile);
+		Input::add_event([$source= "grep \"interface\" /opt/bro/etc/node.cfg 2>/dev/null | grep -v \"^[[:blank:]]*#\" |",
+				$name="SO-interface",
+				$reader=Input::READER_RAW,
+				$want_record=F,
+				$fields=InterfaceCmdLine,
+				$ev=SecurityOnion::interface_line]);		
 		}
 	}
+
