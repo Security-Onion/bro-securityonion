@@ -3,16 +3,16 @@
 ##! hacks in it to work around bugs discovered in Bro.
 
 @load base/frameworks/notice
-@load ./hostname
 @load ./interface
+@load ./sensorname
 
 module BPFConf;
 
 export {
 	## The file that is watched on disk for BPF filter changes.
-	## Two templated variables are available; "hostname" and "interface".
-	## They can be used by surrounding the term by doubled curly braces.
-	const filename = "/etc/nsm/{{hostname}}-{{interface}}/bpf-bro.conf" &redef;
+	## A templated variable is available: "sensorname".
+	## It can be used by surrounding the term by doubled curly braces.
+	const filename = "/etc/nsm/{{sensorname}}/bpf-bro.conf" &redef;
 
 	redef enum Notice::Type += { 
 		## Invalid filter notice.
@@ -86,13 +86,12 @@ function add_filter_file()
 	{
 	local real_filter_filename = BPFConf::filename;
 
-	# Support the interface template value.
-	if ( SecurityOnion::interface != "" )
-		real_filter_filename = gsub(real_filter_filename, /\{\{interface\}\}/, SecurityOnion::interface);
-	
-	# Support the hostname template value.
-	if ( SecurityOnion::hostname != "" )
-		real_filter_filename = gsub(real_filter_filename, /\{\{hostname\}\}/, SecurityOnion::hostname);
+	# Support the sensorname template value.
+	if ( SecurityOnion::interface in SecurityOnion::sensornames)
+		{
+		if ( SecurityOnion::sensornames[SecurityOnion::interface]$sensorname != "" )
+			real_filter_filename = gsub(real_filter_filename, /\{\{sensorname\}\}/, SecurityOnion::sensornames[SecurityOnion::interface]$sensorname);
+		}
 
 	if ( /\{\{/ in real_filter_filename )
 		{
@@ -115,17 +114,7 @@ function add_filter_file()
 		}
 	}
 
-event SecurityOnion::found_hostname(hostname: string)
+event Input::end_of_data(name: string, source: string) 
 	{
 	add_filter_file();
-	}
-event SecurityOnion::found_interface(inter: string)
-	{
-	add_filter_file();
-	}
-
-event bro_init() &priority=5
-	{
-	if ( BPFConf::filename != "" )
-		add_filter_file();
 	}
